@@ -1,10 +1,12 @@
 import string
 # import easyocr
 from paddleocr import PaddleOCR
-
+# import cv2
+import numpy as np
 
 
 percentage = 0.6
+centre_dist = 30
 
 # Mapping dictionaries for character conversion
 dict_char_to_int = {
@@ -155,6 +157,34 @@ def format_license(text):
 #         return None, None  # Return None if no text was detected
 
 
+# def read_license_plate(license_plate_crop):
+#     """
+#     Read the license plate text from the given cropped image using PaddleOCR.
+#     """
+    
+
+#     ocr = PaddleOCR(use_angle_cls=True, lang="en")  # use_angle_cls will help in correcting orientation
+
+#     result = ocr.ocr(license_plate_crop, cls=True)
+
+#     if result and result[0]:
+#         concatenated_text = ""
+#         confidence = 0
+#         for line in result[0]:
+#             text, conf = line[1]
+#             text = text.upper().replace(' ', '')
+#             concatenated_text += text
+#             confidence += conf
+#         return concatenated_text, confidence / len(result[0])
+#     return None, None  # Return None if no text was detected
+
+
+
+def calculate_center(box):
+    """Calculate the center of a bounding box."""
+    x1, y1, x2, y2 = box
+    return (x1 + x2) / 2, (y1 + y2) / 2
+
 def read_license_plate(license_plate_crop):
     """
     Read the license plate text from the given cropped image using PaddleOCR.
@@ -164,16 +194,26 @@ def read_license_plate(license_plate_crop):
     result = ocr.ocr(license_plate_crop, cls=True)
 
     if result and result[0]:
+        center_image = (license_plate_crop.shape[1] / 2, license_plate_crop.shape[0] / 2)
         concatenated_text = ""
         confidence = 0
         for line in result[0]:
-            text, conf = line[1]
+            points, (text, conf) = line
             text = text.upper().replace(' ', '')
-            concatenated_text += text
-            confidence += conf
-        return concatenated_text, confidence / len(result[0])
-    return None, None  # Return None if no text was detected
-
+            x_coordinates = [point[0] for point in points]
+            y_coordinates = [point[1] for point in points]
+            text_bbox = [min(x_coordinates), min(y_coordinates), max(x_coordinates), max(y_coordinates)]
+            center_text = calculate_center(text_bbox)
+            distance = np.sqrt((center_text[0] - center_image[0])**2 + (center_text[1] - center_image[1])**2)
+            print("=====================")
+            print(distance)
+            print("=====================")
+            if distance <= centre_dist:
+                concatenated_text += text
+                confidence += conf
+        if concatenated_text:
+            return concatenated_text, confidence / len(result[0])
+    return None, None  # Return None if no text was detected or all texts are filtered out
 
 
 
